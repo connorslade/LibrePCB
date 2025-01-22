@@ -245,6 +245,7 @@ BoardDesignRuleCheck::Result BoardDesignRuleCheck::run(
         },
         3);
   }
+
   addToStage2(&BoardDesignRuleCheck::checkCopperHoleClearances, 3);
   if (!data->quick) {
     addToStage2(&BoardDesignRuleCheck::checkMinimumPthAnnularRing, 2);
@@ -1637,18 +1638,29 @@ RuleCheckMessageList BoardDesignRuleCheck::checkZones(const Data& data) {
 RuleCheckMessageList BoardDesignRuleCheck::checkVias(const Data& data) {
   RuleCheckMessageList messages;
   emitStatus(tr("Check for useless or disallowed vias..."));
+
   for (const Data::Segment& ns : data.segments) {
     for (const Data::Via& via : ns.vias) {
-      if (!via.drillLayerSpan) {
-        messages.append(
-            std::make_shared<DrcMsgUselessVia>(ns, via, getViaLocation(via)));
-      } else if ((via.isBlind && (!data.settings.getBlindViasAllowed())) ||
-                 (via.isBuried && (!data.settings.getBuriedViasAllowed()))) {
+      if ((via.isBlind && (!data.settings.getBlindViasAllowed())) ||
+          (via.isBuried && (!data.settings.getBuriedViasAllowed())))
         messages.append(
             std::make_shared<DrcMsgForbiddenVia>(ns, via, getViaLocation(via)));
-      }
+
+      // Identify each of the layers connected to the via
+      QSet<const Layer*> layers;
+      for (const Data::Trace& trace : ns.traces)
+        if (via.position == trace.startPosition ||
+            via.position == trace.endPosition)
+          layers.insert(trace.layer);
+
+      // If the total number of layers connected to the via is less than two,
+      // add a 'useless via' warning
+      if (!via.drillLayerSpan || layers.count() < 2)
+        messages.append(
+            std::make_shared<DrcMsgUselessVia>(ns, via, getViaLocation(via)));
     }
   }
+
   return messages;
 }
 
