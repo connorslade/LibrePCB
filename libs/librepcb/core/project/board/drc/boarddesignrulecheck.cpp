@@ -1653,16 +1653,9 @@ RuleCheckMessageList BoardDesignRuleCheck::checkVias(const Data& data) {
             std::make_shared<DrcMsgInvalidVia>(ns, via, getViaLocation(via)));
       }
 
-      // Identify each of the layers connected to the via
-      QSet<const Layer*> layers;
-      for (const Data::Trace& trace : ns.traces)
-        if (via.position == trace.startPosition ||
-            via.position == trace.endPosition)
-          layers.insert(trace.layer);
-
       // If the total number of layers connected to the via is less than two,
       // add a 'useless via' warning
-      if (layers.count() < 2) {
+      if (via.connectedLayers.count() < 2) {
         messages.append(
             std::make_shared<DrcMsgUselessVia>(ns, via, getViaLocation(via)));
       }

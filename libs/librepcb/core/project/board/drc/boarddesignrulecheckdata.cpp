@@ -87,10 +87,15 @@ BoardDesignRuleCheckData::BoardDesignRuleCheckData(
                               &nl->getLayer()});
     }
     foreach (const BI_Via* via, ns->getVias()) {
+      QSet<const Layer*> connectedLayers;
+      foreach (const BI_NetLine* nl, via->getNetLines()) {
+        connectedLayers.insert(&nl->getLayer());
+      }
+
       nsd.vias.insert(
           via->getUuid(),
           Via{via->getUuid(), via->getPosition(), via->getSize(),
-              via->getDrillDiameter(), &via->getVia().getStartLayer(),
+              via->getDrillDiameter(), connectedLayers, &via->getVia().getStartLayer(),
               &via->getVia().getEndLayer(), via->getDrillLayerSpan(),
               via->getVia().isBuried(), via->getVia().isBlind(),
               via->getStopMaskDiameterTop(), via->getStopMaskDiameterBottom()});

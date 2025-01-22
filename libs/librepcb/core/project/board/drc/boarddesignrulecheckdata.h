@@ -63,6 +63,7 @@ struct BoardDesignRuleCheckData final {
     Point position;
     PositiveLength size;
     PositiveLength drillDiameter;
+    QSet<const Layer*> connectedLayers;
     const Layer* startLayer;
     const Layer* endLayer;
     std::optional<std::pair<const Layer*, const Layer*>> drillLayerSpan;
