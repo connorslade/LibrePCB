@@ -1448,6 +1448,26 @@ QString DrcMsgForbiddenVia::determineDescription(
 }
 
 /*******************************************************************************
+ *  Class DrcMsgInvalidVia
+ ******************************************************************************/
+
+DrcMsgInvalidVia::DrcMsgInvalidVia(const BoardDesignRuleCheckData::Segment& ns,
+                                   const Data::Via& via,
+                                   const QVector<Path>& locations) noexcept
+  : RuleCheckMessage(Severity::Warning,
+                     tr("Invalid via in net '%1'", "Placeholders: Net name")
+                         .arg(netNameWithFallback(ns.netName)),
+                     tr("The via is only drilled between one layer and is "
+                        "therefore invalid."),
+                     "invalid_via", locations) {
+  mApproval->ensureLineBreak();
+  mApproval->appendChild("netsegment", ns.uuid);
+  mApproval->ensureLineBreak();
+  mApproval->appendChild("via", via.uuid);
+  mApproval->ensureLineBreak();
+}
+
+/*******************************************************************************
  *  Class DrcMsgSilkscreenClearanceViolation
  ******************************************************************************/
 
@@ -1519,7 +1539,8 @@ DrcMsgDisabledLayer::DrcMsgDisabledLayer(const Layer& layer) noexcept
   : RuleCheckMessage(
         Severity::Warning,
         tr("Objects on disabled layer: '%1'").arg(layer.getNameTr()),
-        tr("The layer contains copper objects, but it is disabled in the board "
+        tr("The layer contains copper objects, but it is disabled in the "
+           "board "
            "setup dialog and thus will be ignored in any production data "
            "exports. Either increase the layer count to get this layer "
            "exported, or remove all objects on this layer (by temporarily "
@@ -1541,8 +1562,10 @@ DrcMsgUnusedLayer::DrcMsgUnusedLayer(const Layer& layer) noexcept
            "generated through-hole annular rings, if any) so it is useless. "
            "This is not critical, but if your intention is to flood it with "
            "copper, you need to add a plane manually. Or if you don't need "
-           "this layer, you might want to reduce the layer count in the board "
-           "setup dialog to avoid unnecessary production costs. Also some PCB "
+           "this layer, you might want to reduce the layer count in the "
+           "board "
+           "setup dialog to avoid unnecessary production costs. Also some "
+           "PCB "
            "manufacturers might be confused by empty layers."),
         "unused_layer") {
   mApproval->ensureLineBreak();

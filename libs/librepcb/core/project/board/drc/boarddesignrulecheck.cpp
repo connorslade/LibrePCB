@@ -1642,9 +1642,16 @@ RuleCheckMessageList BoardDesignRuleCheck::checkVias(const Data& data) {
   for (const Data::Segment& ns : data.segments) {
     for (const Data::Via& via : ns.vias) {
       if ((via.isBlind && (!data.settings.getBlindViasAllowed())) ||
-          (via.isBuried && (!data.settings.getBuriedViasAllowed())))
+          (via.isBuried && (!data.settings.getBuriedViasAllowed()))) {
         messages.append(
             std::make_shared<DrcMsgForbiddenVia>(ns, via, getViaLocation(via)));
+      }
+
+      // If the via has no drill layer span, emit an InvalidVia warning
+      if (!via.drillLayerSpan) {
+        messages.append(
+            std::make_shared<DrcMsgInvalidVia>(ns, via, getViaLocation(via)));
+      }
 
       // Identify each of the layers connected to the via
       QSet<const Layer*> layers;
@@ -1655,9 +1662,10 @@ RuleCheckMessageList BoardDesignRuleCheck::checkVias(const Data& data) {
 
       // If the total number of layers connected to the via is less than two,
       // add a 'useless via' warning
-      if (!via.drillLayerSpan || layers.count() < 2)
+      if (layers.count() < 2) {
         messages.append(
             std::make_shared<DrcMsgUselessVia>(ns, via, getViaLocation(via)));
+      }
     }
   }
 
