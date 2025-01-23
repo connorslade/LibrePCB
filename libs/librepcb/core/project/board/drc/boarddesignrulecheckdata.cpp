@@ -24,11 +24,12 @@
 
 #include "../../../geometry/hole.h"
 #include "../../../geometry/stroketext.h"
+#include "../../../geometry/via.h"
 #include "../../../library/cmp/component.h"
-#include "../../../library/dev/device.h"
 #include "../../../library/pkg/footprint.h"
 #include "../../../library/pkg/footprintpad.h"
 #include "../../../library/pkg/packagepad.h"
+#include "../../../utils/clipperhelpers.h"
 #include "../../circuit/circuit.h"
 #include "../../circuit/componentinstance.h"
 #include "../../circuit/netsignal.h"
@@ -86,19 +87,54 @@ BoardDesignRuleCheckData::BoardDesignRuleCheckData(
                               nl->getEndPoint().getPosition(), nl->getWidth(),
                               &nl->getLayer()});
     }
-    foreach (const BI_Via* via, ns->getVias()) {
+    foreach (const BI_Via* bi_via, ns->getVias()) {
+      const librepcb::Via via = bi_via->getVia();
+
       QSet<const Layer*> connectedLayers;
-      foreach (const BI_NetLine* nl, via->getNetLines()) {
+
+      // Add all the layers of traces directly connected to the current via to
+      // the connectedLayers set
+      foreach (const BI_NetLine* nl, bi_via->getNetLines()) {
         connectedLayers.insert(&nl->getLayer());
       }
 
+      // Should be the same as JobData::maxArcTolerance in
+      // `boardplanefragmentbuilder.h`
+      PositiveLength maxArcTolerance(5000);
+
+      // A via is considered to be connected to a plane if it contains
+      // the layer the plane is on, both of them are part of a net, they are in
+      // the same net, and the via is physcally within the plane
+      const Path viaPath =
+          Path::circle(via.getSize()).translated(via.getPosition());
+      const ClipperLib::Path clipperViaPath =
+          ClipperHelpers::convert(viaPath, maxArcTolerance);
+      const NetSignal* viaNetSignal = bi_via->getNetSegment().getNetSignal();
+
+      foreach (const BI_Plane* plane, board.getPlanes()) {
+        const int copperNumber = plane->getLayer().getCopperNumber();
+        if (via.getStartLayer().getCopperNumber() > copperNumber ||
+            via.getEndLayer().getCopperNumber() < copperNumber ||
+            !plane->getNetSignal() || !viaNetSignal ||
+            plane->getNetSignal() != viaNetSignal ||
+            connectedLayers.contains(&plane->getLayer())) {
+          continue;
+        }
+
+        const ClipperLib::Path clipperPlanePath =
+            ClipperHelpers::convert(plane->getOutline(), maxArcTolerance);
+        if (ClipperHelpers::anyPointsInside(clipperViaPath, clipperPlanePath)) {
+          connectedLayers.insert(&plane->getLayer());
+        }
+      }
+
       nsd.vias.insert(
-          via->getUuid(),
-          Via{via->getUuid(), via->getPosition(), via->getSize(),
-              via->getDrillDiameter(), connectedLayers, &via->getVia().getStartLayer(),
-              &via->getVia().getEndLayer(), via->getDrillLayerSpan(),
-              via->getVia().isBuried(), via->getVia().isBlind(),
-              via->getStopMaskDiameterTop(), via->getStopMaskDiameterBottom()});
+          bi_via->getUuid(),
+          Via{bi_via->getUuid(), bi_via->getPosition(), bi_via->getSize(),
+              bi_via->getDrillDiameter(), connectedLayers, &via.getStartLayer(),
+              &via.getEndLayer(), bi_via->getDrillLayerSpan(), via.isBuried(),
+              via.isBlind(), bi_via->getStopMaskDiameterTop(),
+              bi_via->getStopMaskDiameterBottom()});
     }
     segments.insert(ns->getUuid(), nsd);
   }
