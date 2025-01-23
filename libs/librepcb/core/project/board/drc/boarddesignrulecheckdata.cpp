@@ -88,63 +88,36 @@ BoardDesignRuleCheckData::BoardDesignRuleCheckData(
                               &nl->getLayer()});
     }
     foreach (const BI_Via* bi_via, ns->getVias()) {
-      const librepcb::Via via = bi_via->getVia();
-
       QSet<const Layer*> connectedLayers;
 
       // Add all the layers of traces directly connected to the current via to
-      // the connectedLayers set
+      // the connectedLayers set. The via may be connected to more layers
+      // through other mechanisms like planes, but identifying those connections
+      // can be expensive, so it's not done here.
       foreach (const BI_NetLine* nl, bi_via->getNetLines()) {
         connectedLayers.insert(&nl->getLayer());
       }
 
-      // Should be the same as JobData::maxArcTolerance in
-      // `boardplanefragmentbuilder.h`
-      PositiveLength maxArcTolerance(5000);
-
-      // A via is considered to be connected to a plane if it contains
-      // the layer the plane is on, both of them are part of a net, they are in
-      // the same net, and the via is physcally within the plane
-      const Path viaPath =
-          Path::circle(via.getSize()).translated(via.getPosition());
-      const ClipperLib::Path clipperViaPath =
-          ClipperHelpers::convert(viaPath, maxArcTolerance);
-      const NetSignal* viaNetSignal = bi_via->getNetSegment().getNetSignal();
-
-      foreach (const BI_Plane* plane, board.getPlanes()) {
-        const int copperNumber = plane->getLayer().getCopperNumber();
-        if (via.getStartLayer().getCopperNumber() > copperNumber ||
-            via.getEndLayer().getCopperNumber() < copperNumber ||
-            !plane->getNetSignal() || !viaNetSignal ||
-            plane->getNetSignal() != viaNetSignal ||
-            connectedLayers.contains(&plane->getLayer())) {
-          continue;
-        }
-
-        const ClipperLib::Path clipperPlanePath =
-            ClipperHelpers::convert(plane->getOutline(), maxArcTolerance);
-        if (ClipperHelpers::anyPointsInside(clipperViaPath, clipperPlanePath)) {
-          connectedLayers.insert(&plane->getLayer());
-        }
-      }
-
+      const librepcb::Via via = bi_via->getVia();
       nsd.vias.insert(
           bi_via->getUuid(),
           Via{bi_via->getUuid(), bi_via->getPosition(), bi_via->getSize(),
               bi_via->getDrillDiameter(), connectedLayers, &via.getStartLayer(),
               &via.getEndLayer(), bi_via->getDrillLayerSpan(), via.isBuried(),
               via.isBlind(), bi_via->getStopMaskDiameterTop(),
-              bi_via->getStopMaskDiameterBottom()});
+              bi_via->getStopMaskDiameterBottom(),
+              bi_via->getNetSegment().getNetSignal()});
     }
     segments.insert(ns->getUuid(), nsd);
   }
   foreach (const BI_Plane* plane, board.getPlanes()) {
     const NetSignal* net = plane->getNetSignal();
-    planes.append(Plane{
-        plane->getUuid(),
-        net ? std::make_optional(net->getUuid()) : std::optional<Uuid>(),
-        net ? *net->getName() : QString(), &plane->getLayer(),
-        plane->getMinWidth(), plane->getOutline(), plane->getFragments()});
+    planes.append(
+        Plane{plane->getUuid(),
+              net ? std::make_optional(net->getUuid()) : std::optional<Uuid>(),
+              net ? *net->getName() : QString(), &plane->getLayer(),
+              plane->getMinWidth(), plane->getOutline(), plane->getFragments(),
+              plane->getNetSignal()});
   }
   foreach (const BI_Polygon* polygon, board.getPolygons()) {
     polygons.append(

@@ -260,10 +260,10 @@ BoardDesignRuleCheck::Result BoardDesignRuleCheck::run(
     addIndependent(&BoardDesignRuleCheck::checkInvalidPadConnections, 2);
     addIndependent(&BoardDesignRuleCheck::checkDeviceClearances, 2);
     addIndependent(&BoardDesignRuleCheck::checkBoardOutline, 1);
+    addIndependent(&BoardDesignRuleCheck::checkVias, 1);
   }
   addSequential(&BoardDesignRuleCheck::checkMinimumCopperWidth);
   if (!data->quick) {
-    addSequential(&BoardDesignRuleCheck::checkVias);
     addSequential(&BoardDesignRuleCheck::checkAllowedNpthSlots);
     addSequential(&BoardDesignRuleCheck::checkAllowedPthSlots);
     addSequential(&BoardDesignRuleCheck::checkUsedLayers);
@@ -1651,11 +1651,12 @@ RuleCheckMessageList BoardDesignRuleCheck::checkVias(const Data& data) {
       if (!via.drillLayerSpan) {
         messages.append(
             std::make_shared<DrcMsgInvalidVia>(ns, via, getViaLocation(via)));
+        continue;
       }
 
       // If the total number of layers connected to the via is less than two,
       // add a 'useless via' warning
-      if (via.connectedLayers.count() < 2) {
+      if (getViaConnectedLayers(data.planes, via).count() < 2) {
         messages.append(
             std::make_shared<DrcMsgUselessVia>(ns, via, getViaLocation(via)));
       }
@@ -2295,6 +2296,41 @@ QVector<Path> BoardDesignRuleCheck::getDeviceLocation(
 QVector<Path> BoardDesignRuleCheck::getViaLocation(
     const Data::Via& via) noexcept {
   return {Path::circle(via.size).translated(via.position)};
+}
+
+QSet<const Layer*> BoardDesignRuleCheck::getViaConnectedLayers(
+    const QList<Data::Plane>& planes, const Data::Via& via) noexcept {
+  QSet<const Layer*> connectedLayers(via.connectedLayers);
+
+  // Should be the same as JobData::maxArcTolerance in
+  // `boardplanefragmentbuilder.h`
+  PositiveLength maxArcTolerance(5000);
+
+  // A via is considered to be connected to a plane if it contains
+  // the layer the plane is on, both of them are part of a net, they are in
+  // the same net, and the via is physically within the plane
+  const Path viaPath = Path::circle(via.size).translated(via.position);
+  const ClipperLib::Path clipperViaPath =
+      ClipperHelpers::convert(viaPath, maxArcTolerance);
+
+  for (const Data::Plane& plane : planes) {
+    const int copperNumber = plane.layer->getCopperNumber();
+    if (via.startLayer->getCopperNumber() > copperNumber ||
+        via.endLayer->getCopperNumber() < copperNumber || !plane.netSignal ||
+        !via.netSignal || plane.netSignal != via.netSignal ||
+        connectedLayers.contains(plane.layer)) {
+      continue;
+    }
+
+    // todo: do i use .outline or .fragments??
+    const ClipperLib::Path clipperPlanePath =
+        ClipperHelpers::convert(plane.outline, maxArcTolerance);
+    if (ClipperHelpers::anyPointsInside(clipperViaPath, clipperPlanePath)) {
+      connectedLayers.insert(plane.layer);
+    }
+  }
+
+  return connectedLayers;
 }
 
 QVector<Path> BoardDesignRuleCheck::getTraceLocation(
