@@ -1518,8 +1518,9 @@ DrcMsgUselessZone::DrcMsgUselessZone(const Data::Zone& zone,
  ******************************************************************************/
 
 // Because the key `useless_via` is used by the InvalidVia
-// message, `antennae_via` is used here. This can be changed to `useless_via`
-// for the next major release.
+// message and can't be changed for backwards compatibility reasons,
+// `antennae_via` is used here. This can be changed to `useless_via` for the
+// next major release.
 DrcMsgUselessVia::DrcMsgUselessVia(const BoardDesignRuleCheckData::Segment& ns,
                                    const Data::Via& via,
                                    const QVector<Path>& locations) noexcept
