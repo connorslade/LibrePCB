@@ -148,6 +148,8 @@ private:  // Methods
   static QVector<Path> getViaLocation(const Data::Via& via) noexcept;
   static QSet<const Layer*> getViaConnectedLayers(
       const QList<Data::Plane>& planes, const Data::Via& via) noexcept;
+  static bool isViaConnectedToAnyPad(const QList<Data::Device>& devices,
+                                     const Data::Via& via) noexcept;
   static QVector<Path> getTraceLocation(const Data::Trace& trace) noexcept;
   static QVector<Path> getHoleLocation(
       const Data::Hole& hole,

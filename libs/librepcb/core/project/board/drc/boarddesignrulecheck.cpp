@@ -22,6 +22,7 @@
  ******************************************************************************/
 #include "boarddesignrulecheck.h"
 
+#include "../../../geometry/padgeometry.h"
 #include "../../../geometry/via.h"
 #include "../../../types/layer.h"
 #include "../../../utils/clipperhelpers.h"
@@ -29,6 +30,8 @@
 #include "../boardplanefragmentsbuilder.h"
 #include "boardclipperpathgenerator.h"
 #include "boarddesignrulecheckmessages.h"
+
+#include "polyclipping/clipper.hpp"
 
 #include <QtConcurrent>
 #include <QtCore>
@@ -1655,8 +1658,10 @@ RuleCheckMessageList BoardDesignRuleCheck::checkVias(const Data& data) {
       }
 
       // If the total number of layers connected to the via is less than two,
-      // add a 'useless via' warning
-      if (getViaConnectedLayers(data.planes, via).count() < 2) {
+      // add a 'useless via' warning. Vias connected to pads are ignored as they
+      // are commenly used as thermal vias.
+      if (!isViaConnectedToAnyPad(data.devices.values(), via) &&
+          getViaConnectedLayers(data.planes, via).count() < 2) {
         messages.append(
             std::make_shared<DrcMsgUselessVia>(ns, via, getViaLocation(via)));
       }
@@ -2302,16 +2307,11 @@ QSet<const Layer*> BoardDesignRuleCheck::getViaConnectedLayers(
     const QList<Data::Plane>& planes, const Data::Via& via) noexcept {
   QSet<const Layer*> connectedLayers(via.connectedLayers);
 
-  // Should be the same as JobData::maxArcTolerance in
-  // `boardplanefragmentbuilder.h`
-  PositiveLength maxArcTolerance(5000);
-
   // A via is considered to be connected to a plane if it contains
   // the layer the plane is on, both of them are part of a net, they are in
   // the same net, and the via is physically within the plane
-  const Path viaPath = Path::circle(via.size).translated(via.position);
-  const ClipperLib::Path clipperViaPath =
-      ClipperHelpers::convert(viaPath, maxArcTolerance);
+  const ClipperLib::IntPoint viaPosition =
+      ClipperHelpers::convert(via.position);
 
   for (const Data::Plane& plane : planes) {
     const int copperNumber = plane.layer->getCopperNumber();
@@ -2322,15 +2322,48 @@ QSet<const Layer*> BoardDesignRuleCheck::getViaConnectedLayers(
       continue;
     }
 
-    // todo: do i use .outline or .fragments??
     const ClipperLib::Path clipperPlanePath =
-        ClipperHelpers::convert(plane.outline, maxArcTolerance);
-    if (ClipperHelpers::anyPointsInside(clipperViaPath, clipperPlanePath)) {
+        ClipperHelpers::convert(plane.outline, maxArcTolerance());
+    if (ClipperLib::PointInPolygon(viaPosition, clipperPlanePath)) {
       connectedLayers.insert(plane.layer);
     }
   }
 
   return connectedLayers;
+}
+
+bool BoardDesignRuleCheck::isViaConnectedToAnyPad(
+    const QList<Data::Device>& devices, const Data::Via& via) noexcept {
+  const ClipperLib::IntPoint viaPosition =
+      ClipperHelpers::convert(via.position);
+
+  // For each pad geometry that shares a layer with the current via, check if
+  // the center of the via is in the outline of the pad
+  for (const Data::Device& device : devices) {
+    for (const Data::Pad& pad : device.pads.values()) {
+      const Transform transform(pad.position, pad.rotation, pad.mirror);
+
+      for (auto it = pad.geometries.begin(); it != pad.geometries.end(); it++) {
+        const int copperNumber = it.key()->getCopperNumber();
+        if (via.startLayer->getCopperNumber() > copperNumber ||
+            via.endLayer->getCopperNumber() < copperNumber) {
+          continue;
+        }
+
+        for (const PadGeometry& geom : it.value()) {
+          for (const Path& outline : geom.toOutlines()) {
+            const ClipperLib::Path clipperPadPath = ClipperHelpers::convert(
+                transform.map(outline), maxArcTolerance());
+            if (ClipperLib::PointInPolygon(viaPosition, clipperPadPath)) {
+              return true;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  return false;
 }
 
 QVector<Path> BoardDesignRuleCheck::getTraceLocation(
