@@ -1659,7 +1659,7 @@ RuleCheckMessageList BoardDesignRuleCheck::checkVias(const Data& data) {
       // If the total number of layers connected to the via is less than two,
       // add a 'useless via' warning. Connections can be made by traces, planes,
       // or pads.
-      if (isViaUseless(data, via)) {
+      if (isViaUseless(data, ns, via)) {
         messages.append(
             std::make_shared<DrcMsgUselessVia>(ns, via, getViaLocation(via)));
       }
@@ -2302,6 +2302,7 @@ QVector<Path> BoardDesignRuleCheck::getViaLocation(
 }
 
 bool BoardDesignRuleCheck::isViaUseless(const Data& data,
+                                        const Data::Segment& ns,
                                         const Data::Via& via) noexcept {
   // The layers of the traces directly connected to the via have already been
   // added, so if there are two or more connected layers, the via is not
@@ -2319,9 +2320,9 @@ bool BoardDesignRuleCheck::isViaUseless(const Data& data,
   // the same net, and the via is physically within the plane
   for (const Data::Plane& plane : data.planes) {
     const int copperNumber = plane.layer->getCopperNumber();
-    if (via.startLayer->getCopperNumber() > copperNumber ||
-        via.endLayer->getCopperNumber() < copperNumber || !plane.netSignal ||
-        !via.netSignal || plane.netSignal != via.netSignal ||
+    if (((via.startLayer->getCopperNumber() > copperNumber) ||
+         (via.endLayer->getCopperNumber() < copperNumber)) ||
+        ((!plane.net) || (!ns.net) || (plane.net != ns.net)) ||
         connectedLayers.contains(plane.layer)) {
       continue;
     }
@@ -2339,13 +2340,14 @@ bool BoardDesignRuleCheck::isViaUseless(const Data& data,
   // For each pad geometry that shares a layer with the current via, check if
   // the center of the via is in the outline of the pad.
   for (const Data::Device& device : data.devices) {
-    for (const Data::Pad& pad : device.pads.values()) {
+    for (const Data::Pad& pad : device.pads) {
       const Transform transform(pad.position, pad.rotation, pad.mirror);
 
       for (auto it = pad.geometries.begin(); it != pad.geometries.end(); it++) {
         const int copperNumber = it.key()->getCopperNumber();
-        if (via.startLayer->getCopperNumber() > copperNumber ||
-            via.endLayer->getCopperNumber() < copperNumber ||
+        if (it.key()->isCopper() ||
+            ((via.startLayer->getCopperNumber() > copperNumber) ||
+             (via.endLayer->getCopperNumber() < copperNumber)) ||
             connectedLayers.contains(it.key())) {
           continue;
         }

@@ -928,7 +928,7 @@ private:
  * @brief The DrcMsgInvalidVia class
  */
 class DrcMsgInvalidVia final : public RuleCheckMessage {
-  Q_DECLARE_TR_FUNCTIONS(DrcMsgForbiddenVia)
+  Q_DECLARE_TR_FUNCTIONS(DrcMsgInvalidVia)
 
 public:
   using Data = BoardDesignRuleCheckData;

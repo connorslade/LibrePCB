@@ -25,7 +25,6 @@
  ******************************************************************************/
 #include "../../../geometry/padgeometry.h"
 #include "../../../geometry/zone.h"
-#include "../../../project/circuit/netsignal.h"
 #include "../../../types/uuid.h"
 #include "boarddesignrulechecksettings.h"
 
@@ -73,7 +72,6 @@ struct BoardDesignRuleCheckData final {
     bool isBlind;
     std::optional<PositiveLength> stopMaskDiameterTop;
     std::optional<PositiveLength> stopMaskDiameterBot;
-    NetSignal* netSignal;  // May be null.
   };
   struct Segment {
     Uuid uuid;
@@ -104,7 +102,6 @@ struct BoardDesignRuleCheckData final {
     UnsignedLength minWidth;
     Path outline;
     QVector<Path> fragments;
-    NetSignal* netSignal;  // May be null.
   };
   struct Polygon {
     Uuid uuid;

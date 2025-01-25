@@ -105,19 +105,17 @@ BoardDesignRuleCheckData::BoardDesignRuleCheckData(
               bi_via->getDrillDiameter(), connectedLayers, &via.getStartLayer(),
               &via.getEndLayer(), bi_via->getDrillLayerSpan(), via.isBuried(),
               via.isBlind(), bi_via->getStopMaskDiameterTop(),
-              bi_via->getStopMaskDiameterBottom(),
-              bi_via->getNetSegment().getNetSignal()});
+              bi_via->getStopMaskDiameterBottom()});
     }
     segments.insert(ns->getUuid(), nsd);
   }
   foreach (const BI_Plane* plane, board.getPlanes()) {
     const NetSignal* net = plane->getNetSignal();
-    planes.append(
-        Plane{plane->getUuid(),
-              net ? std::make_optional(net->getUuid()) : std::optional<Uuid>(),
-              net ? *net->getName() : QString(), &plane->getLayer(),
-              plane->getMinWidth(), plane->getOutline(), plane->getFragments(),
-              plane->getNetSignal()});
+    planes.append(Plane{
+        plane->getUuid(),
+        net ? std::make_optional(net->getUuid()) : std::optional<Uuid>(),
+        net ? *net->getName() : QString(), &plane->getLayer(),
+        plane->getMinWidth(), plane->getOutline(), plane->getFragments()});
   }
   foreach (const BI_Polygon* polygon, board.getPolygons()) {
     polygons.append(
