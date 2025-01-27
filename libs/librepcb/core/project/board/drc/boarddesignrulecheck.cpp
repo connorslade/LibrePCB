@@ -2345,7 +2345,7 @@ bool BoardDesignRuleCheck::isViaUseless(const Data& data,
 
       for (auto it = pad.geometries.begin(); it != pad.geometries.end(); it++) {
         const int copperNumber = it.key()->getCopperNumber();
-        if (it.key()->isCopper() ||
+        if ((!it.key()->isCopper()) ||
             ((via.startLayer->getCopperNumber() > copperNumber) ||
              (via.endLayer->getCopperNumber() < copperNumber)) ||
             connectedLayers.contains(it.key())) {

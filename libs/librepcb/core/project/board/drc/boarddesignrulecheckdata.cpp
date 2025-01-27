@@ -87,25 +87,25 @@ BoardDesignRuleCheckData::BoardDesignRuleCheckData(
                               nl->getEndPoint().getPosition(), nl->getWidth(),
                               &nl->getLayer()});
     }
-    foreach (const BI_Via* bi_via, ns->getVias()) {
+    foreach (const BI_Via* biVia, ns->getVias()) {
       QSet<const Layer*> connectedLayers;
 
       // Add all the layers of traces directly connected to the current via to
       // the connectedLayers set. The via may be connected to more layers
       // through other mechanisms like planes, but identifying those connections
       // can be expensive, so it's not done here.
-      foreach (const BI_NetLine* nl, bi_via->getNetLines()) {
+      foreach (const BI_NetLine* nl, biVia->getNetLines()) {
         connectedLayers.insert(&nl->getLayer());
       }
 
-      const librepcb::Via via = bi_via->getVia();
+      const librepcb::Via& via = biVia->getVia();
       nsd.vias.insert(
-          bi_via->getUuid(),
-          Via{bi_via->getUuid(), bi_via->getPosition(), bi_via->getSize(),
-              bi_via->getDrillDiameter(), connectedLayers, &via.getStartLayer(),
-              &via.getEndLayer(), bi_via->getDrillLayerSpan(), via.isBuried(),
-              via.isBlind(), bi_via->getStopMaskDiameterTop(),
-              bi_via->getStopMaskDiameterBottom()});
+          biVia->getUuid(),
+          Via{biVia->getUuid(), biVia->getPosition(), biVia->getSize(),
+              biVia->getDrillDiameter(), connectedLayers, &via.getStartLayer(),
+              &via.getEndLayer(), biVia->getDrillLayerSpan(), via.isBuried(),
+              via.isBlind(), biVia->getStopMaskDiameterTop(),
+              biVia->getStopMaskDiameterBottom()});
     }
     segments.insert(ns->getUuid(), nsd);
   }
